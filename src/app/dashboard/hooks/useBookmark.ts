@@ -13,6 +13,14 @@ export function useBookmarks() {
   const [loading, setLoading] = useState(true);
 
   
+  const isValidUrl = (value: string) => {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
 
   const fetchBookmarks = async () => {
     const { data, error } = await supabase
@@ -25,9 +33,21 @@ export function useBookmarks() {
     }
   };
 
-  
-
   const addBookmark = async (title: string, url: string) => {
+    const trimmedTitle = title.trim();
+    const trimmedUrl = url.trim();
+
+    if (!trimmedTitle || !trimmedUrl) {
+      return { success: false, error: "Title and URL are required." };
+    }
+
+    if (!isValidUrl(trimmedUrl)) {
+      return {
+        success: false,
+        error: "Invalid URL. Must start with http:// or https://",
+      };
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return { success: false, error: "Not authenticated" };
@@ -35,8 +55,8 @@ export function useBookmarks() {
 
     const { error } = await supabase.from("bookmarks").insert([
       {
-        title: title.trim(),
-        url: url.trim(),
+        title: trimmedTitle,
+        url: trimmedUrl,
         user_id: userData.user.id,
       },
     ]);
@@ -48,10 +68,11 @@ export function useBookmarks() {
     return { success: true };
   };
 
-  
-
   const deleteBookmark = async (id: string) => {
-    const { error } = await supabase.from("bookmarks").delete().eq("id", id);
+    const { error } = await supabase
+      .from("bookmarks")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       return { success: false, error: error.message };
@@ -59,8 +80,6 @@ export function useBookmarks() {
 
     return { success: true };
   };
-
-  
 
   useEffect(() => {
     let channel: any;
@@ -77,7 +96,7 @@ export function useBookmarks() {
             schema: "public",
             table: "bookmarks",
           },
-          fetchBookmarks,
+          fetchBookmarks
         )
         .subscribe();
 
